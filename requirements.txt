@@ -1,0 +1,6 @@
+strands-agents
+strands-agents-tools
+mcp
+anthropic
+requests
+python-dotenv
