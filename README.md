@@ -76,6 +76,194 @@ Each tool checks for its dependencies at server startup. If a binary or API key 
 | `osint_pipeline` | none (always available) | - |
 | `generate_phishing_campaign` | none (always available) | - |
 
+## AWS SES Phishing Delivery
+
+The Campaign agent uses **Amazon Simple Email Service (SES)** to deliver phishing emails. This section covers everything needed to get SES working.
+
+### Prerequisites
+
+1. **AWS CLI** must be installed and on your PATH
+2. **AWS credentials** must be configured (access keys or named profile)
+3. **Sender and recipient identities** must be verified in SES
+
+> If you skip SES setup, the campaign planner still works — you just can't deliver emails. The `ses_*` tools are silently skipped when the `aws` CLI is not found.
+
+### 1. Install the AWS CLI
+
+```bash
+# Ubuntu/Debian
+sudo apt install -y awscli
+
+# Or install v2 directly
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+```
+
+Verify it's installed:
+
+```bash
+aws --version
+```
+
+### 2. Configure AWS Credentials
+
+The AWS CLI needs credentials with SES permissions. You have two options:
+
+**Option A: Programmatic Access Keys (default profile)**
+
+```bash
+aws configure
+```
+
+This prompts for:
+
+| Field | Value |
+|-------|-------|
+| AWS Access Key ID | Your IAM access key |
+| AWS Secret Access Key | Your IAM secret key |
+| Default region | `us-east-1` (or your SES region) |
+| Output format | `json` |
+
+Credentials are stored in `~/.aws/credentials` and `~/.aws/config`.
+
+**Option B: Named Profile**
+
+If you use multiple AWS accounts, configure a named profile:
+
+```bash
+aws configure --profile redteam
+```
+
+Then export the profile before running the agent:
+
+```bash
+export AWS_PROFILE=redteam
+```
+
+**Minimum IAM permissions required:**
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ses:SendEmail",
+        "ses:VerifyEmailIdentity",
+        "ses:GetIdentityVerificationAttributes"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+### 3. SES Identity Verification
+
+**This is the most important step.** SES requires identity verification before it will send or receive email.
+
+#### SES Sandbox Mode (default for new accounts)
+
+New AWS accounts start in the **SES sandbox**. In sandbox mode, **both the sender AND recipient email addresses must be verified**. This is ideal for red team testing because you control both sides.
+
+#### Verify the sender (your red team address)
+
+```bash
+# Send a verification email to the sender address
+aws ses verify-email-identity --email-address sender@yourdomain.com --region us-east-1
+```
+
+The owner of `sender@yourdomain.com` will receive an email from AWS with a verification link. **Click the link** to complete verification.
+
+Check verification status:
+
+```bash
+aws ses get-identity-verification-attributes \
+  --identities sender@yourdomain.com \
+  --region us-east-1
+```
+
+Expected output when verified:
+
+```json
+{
+  "VerificationAttributes": {
+    "sender@yourdomain.com": {
+      "VerificationStatus": "Success"
+    }
+  }
+}
+```
+
+#### Verify the recipient (the phishing target)
+
+In sandbox mode, the recipient must also be verified:
+
+```bash
+# Send verification email to the target address
+aws ses verify-email-identity --email-address target@example.com --region us-east-1
+```
+
+The target must click the verification link. For red team engagements, coordinate this with the client or use a test mailbox you control.
+
+Check recipient verification:
+
+```bash
+aws ses get-identity-verification-attributes \
+  --identities target@example.com \
+  --region us-east-1
+```
+
+#### Verify a whole domain (optional, production use)
+
+If you've moved out of sandbox mode or want to verify an entire domain:
+
+```bash
+aws ses verify-domain-identity --domain yourdomain.com --region us-east-1
+```
+
+This returns a TXT record you must add to your domain's DNS. Once the DNS propagates, all addresses at that domain are verified.
+
+#### List all verified identities
+
+```bash
+aws ses list-identities --region us-east-1
+```
+
+#### Check multiple identities at once
+
+```bash
+aws ses get-identity-verification-attributes \
+  --identities sender@yourdomain.com target@example.com \
+  --region us-east-1
+```
+
+### SES Quick Reference
+
+| Task | Command |
+|------|---------|
+| Verify sender email | `aws ses verify-email-identity --email-address EMAIL --region us-east-1` |
+| Verify recipient email | `aws ses verify-email-identity --email-address EMAIL --region us-east-1` |
+| Check verification status | `aws ses get-identity-verification-attributes --identities EMAIL --region us-east-1` |
+| List all verified identities | `aws ses list-identities --region us-east-1` |
+| Verify a domain | `aws ses verify-domain-identity --domain DOMAIN --region us-east-1` |
+| Check send quota | `aws ses get-send-quota --region us-east-1` |
+| Request production access | `aws sesv2 put-account-details` (via AWS Console is easier) |
+
+### Workflow Summary
+
+```
+1. aws configure                          # Set up credentials
+2. aws ses verify-email-identity ...      # Verify sender
+3. (click verification link in email)
+4. aws ses verify-email-identity ...      # Verify recipient (sandbox)
+5. (recipient clicks verification link)
+6. python client.py                       # Run the agent
+7. "Create a phishing campaign for ..."   # Agent handles the rest
+```
+
 ## Token Tuning
 
 If agents hit token limits, adjust the constants at the top of `client.py`:

@@ -59,8 +59,41 @@ source ~/.bashrc
 
 ```bash
 sudo apt install -y awscli
-aws configure   # Set up credentials with SES permissions
 ```
+
+Configure credentials using either programmatic access keys or a named profile:
+
+```bash
+# Option A: Default profile with access keys
+aws configure
+
+# Option B: Named profile (e.g., for dedicated red team credentials)
+aws configure --profile redteam
+export AWS_PROFILE=redteam
+```
+
+The IAM user/role needs `ses:SendEmail`, `ses:VerifyEmailIdentity`, and `ses:GetIdentityVerificationAttributes` permissions.
+
+**Identity verification (required before sending):**
+
+New AWS accounts run SES in sandbox mode, which requires **both sender and recipient** to be verified:
+
+```bash
+# Verify your sender address
+aws ses verify-email-identity --email-address sender@yourdomain.com --region us-east-1
+# → Click the verification link in the email AWS sends
+
+# Verify the recipient (required in sandbox mode)
+aws ses verify-email-identity --email-address target@example.com --region us-east-1
+# → Recipient must click their verification link
+
+# Confirm both are verified
+aws ses get-identity-verification-attributes \
+  --identities sender@yourdomain.com target@example.com \
+  --region us-east-1
+```
+
+See the [AWS SES Phishing Delivery](README.md#aws-ses-phishing-delivery) section in README.md for the full setup guide and CLI reference.
 
 If you don't need phishing email delivery, skip this — the campaign planner still works without it.
 
