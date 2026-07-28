@@ -48,13 +48,19 @@ def register(mcp):
         except Exception as e:
             results["crtsh"] = f"crt.sh lookup failed: {e}"
 
-        # HTTP Headers
-        try:
-            r = requests.get(f"https://{domain}", timeout=5)
-            headers_data = dict(r.headers)
-            results["headers"] = headers_data
-        except Exception as e:
-            results["headers"] = f"header probe failed: {e}"
+        # HTTP Headers — try HTTPS first, then fall back to HTTP.
+        # S3 website endpoints are HTTP-only unless fronted by CloudFront.
+        for scheme in ("https", "http"):
+            try:
+                r = requests.get(f"{scheme}://{domain}", timeout=5, allow_redirects=True)
+                headers_data = dict(r.headers)
+                headers_data["_status_code"] = r.status_code
+                headers_data["_final_url"] = r.url
+                results["headers"] = headers_data
+                results["http_scheme"] = scheme
+                break
+            except Exception as e:
+                results["headers"] = f"header probe failed ({scheme}): {e}"
 
         # Brave Search (degrades gracefully)
         try:
