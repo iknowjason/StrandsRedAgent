@@ -24,16 +24,16 @@ from memory.campaign_memory import initialize
 # ======================================================================
 
 # --- xAI Grok (least restrictive for red team ops) ---
-PROVIDER = "xai"
+#PROVIDER = "xai"
 # MODEL_ID = "grok-4-fast-non-reasoning"              # fast, no reasoning ($0.20/$0.50)
 # MODEL_ID = "grok-4-0709"                          # full Grok 4 ($3/$15 per M tokens)
 # MODEL_ID = "grok-4.20-multi-agent-beta-0309"      # multi-agent beta ($2/$6)
-MODEL_ID = "grok-4-fast-reasoning"                   # fast + reasoning ($0.20/$0.50)
+#MODEL_ID = "grok-4-fast-reasoning"                   # fast + reasoning ($0.20/$0.50)
 # MODEL_ID = "grok-3"                                # Grok 3 ($3/$15)
 
 # --- OpenAI GPT (SANS LiteLLM proxy: allowed models include gpt-4o, gpt-4o-mini, gpt-5.2) ---
-# PROVIDER = "openai"
-# MODEL_ID = "gpt-4o"
+PROVIDER = "openai"
+MODEL_ID = "gpt-4o"
 
 # --- Anthropic Claude ---
 # PROVIDER = "anthropic"
