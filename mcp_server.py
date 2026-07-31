@@ -8,6 +8,8 @@ from tools import planner_tool
 from tools import phishing_tool
 from tools import campaign_state
 from tools import ses_phishing
+from tools import skill_loader
+from tools import s3_recon
 
 from dotenv import load_dotenv
 
@@ -27,6 +29,8 @@ modules = [
     ("phishing_tool", phishing_tool),
     ("campaign_state", campaign_state),
     ("ses_phishing", ses_phishing),
+    ("skills (list_skills/load_skill)", skill_loader),
+    ("s3_recon", s3_recon),
 ]
 
 for name, mod in modules:

@@ -31,9 +31,9 @@ PROVIDER = "xai"
 MODEL_ID = "grok-4-fast-reasoning"                   # fast + reasoning ($0.20/$0.50)
 # MODEL_ID = "grok-3"                                # Grok 3 ($3/$15)
 
-# --- OpenAI GPT ---
+# --- OpenAI GPT (SANS LiteLLM proxy: allowed models include gpt-4o, gpt-4o-mini, gpt-5.2) ---
 # PROVIDER = "openai"
-# MODEL_ID = "gpt-5.4"
+# MODEL_ID = "gpt-4o"
 
 # --- Anthropic Claude ---
 # PROVIDER = "anthropic"
@@ -56,11 +56,18 @@ def _build_models(supervisor_max, worker_max):
 
     elif PROVIDER == "openai":
         from strands.models.openai import OpenAIModel
-        if not os.getenv("OPENAI_API_KEY"):
+        key = os.getenv("OPENAI_API_KEY")
+        if not key:
             print("Error: OPENAI_API_KEY not set. Add it to sec1/.env or export it.")
             sys.exit(1)
-        sup = OpenAIModel(model_id=MODEL_ID, params={"max_completion_tokens": supervisor_max})
-        wrk = OpenAIModel(model_id=MODEL_ID, params={"max_completion_tokens": worker_max})
+        # Route through an OpenAI-compatible proxy (e.g. the SANS LiteLLM proxy) only when
+        # OPENAI_API_BASE is set; otherwise talk directly to OpenAI's default endpoint.
+        client_args = {"api_key": key}
+        base_url = os.getenv("OPENAI_API_BASE")
+        if base_url:
+            client_args["base_url"] = base_url
+        sup = OpenAIModel(client_args=client_args, model_id=MODEL_ID, params={"max_completion_tokens": supervisor_max})
+        wrk = OpenAIModel(client_args=client_args, model_id=MODEL_ID, params={"max_completion_tokens": worker_max})
 
     elif PROVIDER == "anthropic":
         from strands.models.anthropic import AnthropicModel
