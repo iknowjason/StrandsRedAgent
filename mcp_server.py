@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-mcp = FastMCP("RedTeam MCP Server", port=8001)
+mcp = FastMCP("RedTeam MCP Server", host="0.0.0.0", port=8001)
 
 print("\n--- Red Team MCP Server (port 8001) ---")
 print("Registering tools...\n")
