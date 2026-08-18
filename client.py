@@ -32,10 +32,8 @@ from memory.campaign_memory import initialize
 # MODEL_ID = "grok-3"                                # Grok 3 ($3/$15)
 
 # --- OpenAI GPT (SANS LiteLLM proxy: allowed models include gpt-4o, gpt-4o-mini, gpt-5.2) ---
-<<<<<<< HEAD
 # PROVIDER = "openai"
 # MODEL_ID = "gpt-4o"
-=======
 PROVIDER = "openai"
 MODEL_ID = "gpt-4o"
 
