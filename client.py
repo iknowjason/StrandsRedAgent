@@ -1,8 +1,68 @@
 import os
 import sys
+import logging
 import warnings
 
 warnings.filterwarnings("ignore")
+
+# ---------------------------------------------------------------------------
+# Silence benign async-generator teardown noise on Python 3.13.
+#
+# The MCP streamable-HTTP client runs its httpx connection pool on a background
+# event loop. When that loop is torn down, asyncio finalizes the still-open
+# PoolByteStream async generator; GeneratorExit is thrown into it and the httpx
+# stack re-raises "generator didn't stop after athrow()". Every tool call has
+# already completed and returned 200 by this point — this is pure shutdown
+# noise, not a failure. It surfaces via TWO different channels depending on how
+# the loop closes, so we quiet both, as narrowly as possible:
+#
+#   (1) asyncio's loop.shutdown_asyncgens() -> loop.call_exception_handler(),
+#       which logs through the "asyncio" logger with the message
+#       "an error occurred during closing of asynchronous generator ...".
+#       -> handled by the logging filter below.
+#   (2) the interpreter's async-generator GC finalizer, printed via
+#       sys.unraisablehook as "Exception ignored in: <async_generator ...>".
+#       -> handled by the unraisablehook below.
+#
+# Anything that is not this specific teardown case still reaches the default
+# handlers, so real bugs stay visible.
+
+_TEARDOWN_MARKERS = (
+    "closing of asynchronous generator",
+    "generator didn't stop after athrow",
+    "PoolByteStream",
+)
+
+
+class _AsyncgenTeardownFilter(logging.Filter):
+    def filter(self, record):
+        msg = record.getMessage()
+        return not any(m in msg for m in _TEARDOWN_MARKERS)
+
+
+logging.getLogger("asyncio").addFilter(_AsyncgenTeardownFilter())
+
+_default_unraisablehook = sys.unraisablehook
+
+
+def _quiet_asyncgen_teardown(unraisable):
+    exc = unraisable.exc_value
+    msg = str(exc) if exc else ""
+    benign = (
+        isinstance(exc, GeneratorExit)
+        or (isinstance(exc, RuntimeError)
+            and ("athrow()" in msg
+                 or "generator didn't stop" in msg
+                 or "cancel scope" in msg
+                 or "Attempted to exit" in msg))
+    )
+    if benign:
+        return
+    _default_unraisablehook(unraisable)
+
+
+sys.unraisablehook = _quiet_asyncgen_teardown
+# ---------------------------------------------------------------------------
 
 from dotenv import load_dotenv
 
