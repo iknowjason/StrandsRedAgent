@@ -1,6 +1,5 @@
 strands-agents
 strands-agents-tools
-mcp
 anthropic
 openai
 requests
