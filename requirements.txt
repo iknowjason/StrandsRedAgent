@@ -5,3 +5,4 @@ anthropic
 openai
 requests
 python-dotenv
+mcp<2
